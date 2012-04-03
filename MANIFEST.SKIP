@@ -1,0 +1,7 @@
+#ignore perlall output
+log\.*
+#ignore google-pprof output
+\.out
+
+#ignore komodo project file
+\.kpf

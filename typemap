@@ -1,0 +1,20 @@
+TYPEMAP
+
+PLJSONSL *	T_PLJSONSL
+PLTUBA*		T_PLTUBA
+
+INPUT
+T_PLJSONSL
+	if (! (SvROK($arg) && SvOBJECT(SvRV($arg)) && SvIOK(SvRV($arg)))) {
+	die(\"Not a valid JSON::SL object\");
+	}
+
+	$var = NUM2PTR(PLJSONSL *, SvIV(SvRV($arg)));
+
+T_PLTUBA
+	if (! (SvROK($arg) && SvOBJECT(SvRV($arg)) && SvIOK(SvRV($arg)))) {
+	die(\"Not a valid JSON::SL::Tuba object\");
+	}
+
+	$var = NUM2PTR(PLTUBA *, SvIV(SvRV($arg)));
+
