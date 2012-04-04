@@ -29,6 +29,12 @@
 #define PLTUBA_CLASS_NAME "JSON::SL::Tuba"
 #define PLTUBA_HELPER_FUNC "JSON::SL::Tuba::_plhelper"
 
+#if PERL_VERSION >= 10
+#define PLJSONSL_HAVE_HV_COMMON
+#else
+#warning "You are using a Perl from the stone age. This code might work.."
+#endif /* 5.10.0 */
+
 /**
  * Extended fields for a stack state
  * sv: the raw SV (never a reference)
@@ -74,26 +80,24 @@
 #define PLJSONSL_mkTHX(pjsn)
 #endif /* PERL_IMPLICIT_CONTEXT */
 
+
+#define PLJSONSL_COMMON_FIELDS \
+    /* The lexer */ \
+    jsonsl_t jsn;  \
+    /* Input buffer */ \
+    SV *buf; \
+    /* Start position of the buffer (relative to input stream) */ \
+    size_t pos_min_valid; \
+    /* Position of the beginning of the earlist of (SPECIAL,STRINGY) */ \
+    size_t keep_pos; \
+    /* Context for threaded Perls */ \
+    void *pl_thx;
+
 typedef struct {
-    /* Our lexer */
-    jsonsl_t jsn;
+    PLJSONSL_COMMON_FIELDS;
 
     /* Root perl data structure. This is either an HV* or AV* */
     SV *root;
-
-    /* Backlog buffer, for large strings, 'special' data, \u-escaping,
-     * and other fun stuff
-     */
-
-    SV *buf;
-
-    /* The minimum valid position. Offsets smaller than this do not
-     * point to valid data anymore
-     */
-    size_t pos_min_valid;
-
-    /* Minimum backlog position */
-    size_t keep_pos;
 
     /**
      * "current" hash key. This is always a pointer to an HE* of an existing
@@ -103,18 +107,22 @@ typedef struct {
      */
     HE *curhk;
 
+#ifndef PLJSONSL_HAVE_HV_COMMON
     /**
      * For older perls not exposing hv_common, we need a key sv.
-     * make this as efficient as possible.
+     * make this as efficient as possible. Instead of instantiating a new
+     * SV each time for hv_fetch_ent, we keep one cached, and change its
+     * PV slot as needed. I am able to do this because I have looked at 5.8's
+     * implementation for the hv_* methods in hv.c and unless the hash is magical,
+     * the behavior is to simply extract the PV from the SV in the beginning
+     * anyway.
      */
     SV *ksv;
     char *ksv_origpv;
+#endif
 
     /* Stash for booleans */
     HV *stash_boolean;
-
-    /* Context (THX) for threaded perls */
-    void *pl_thx;
 
     /**
      * Variables the user might set or be interested in (via function calls,
@@ -124,7 +132,10 @@ typedef struct {
         int utf8; /** Set the SvUTF8 flag */
         int nopath; /** Don't include path context in results */
         int noqstr; /** Don't include original query string in results */
-        int max_size;
+        int max_size; /** maximum input size (from JSON::XS) */
+        /* ignore the jsonpointer settings and allow an 'iv-drip' of
+         * objects to be returned via feed */
+        int object_drip;
     } options;
 
     /**
@@ -171,28 +182,16 @@ typedef enum {
  * differences.
  */
 typedef struct {
-    jsonsl_t jsn;
+    PLJSONSL_COMMON_FIELDS;
 
-    /* Position at which our last callback was invoked */
-    size_t last_cb_pos;
-
-    /* position at which the last call to feed was made */
-    size_t buf_pos;
-
-    /**
-     * In cases (or actually, usually) when 'character' data is at
-     * some kind of beginning, the first character is the opening
-     * token itself, usually a quote. this variable defines an
-     * offset (either 1 or 0) for which data is to actually be
-     * delivered to the user.
+    /* When we invoke a callback, instead of re-creating the
+     * mortalized rv each time, we just keep a static reference
+     * to ourselves
      */
-    ssize_t chardata_begin_offset;
+    SV *selfrv;
 
-    /* Buffer containing data to be dispatched */
-    SV *buf;
-
-    /* my_perl, for threaded perls */
-    void *pl_thx;
+    /* set by hkey and string callbacks */
+    int shift_quote;
 
     /* Options */
     struct {

@@ -5,8 +5,11 @@ use blib;
 use JSON::SL;
 use Data::Dumper::Concise;
 use JSON::XS qw(decode_json);
-use Time::HiRes qw(time);
 use Getopt::Long;
+use Benchmark qw(:all);
+use Carp qw(confess);
+
+$SIG{__DIE__} = \&confess;
 
 GetOptions(
     'i|iterations=i' => \my $Iterations,
@@ -17,6 +20,7 @@ GetOptions(
     'f|file=s'  => \my $TESTFILE,
     'r|recursion=i' => \my $RecursionLimit,
     'd|dump'    => \my $DumpTree,
+    'U|no-unescape' => \my $DontUnescape,
     'h|help' => \my $PrintHelp
 );
 
@@ -31,6 +35,7 @@ $0 [options]
     -c --chunked=SIZE       Test incremental chunks of SIZE bytes
     -r --recursion=LEVEL    Set JSON::SL recursion limit
     -d --dump               Dump object tree on completion
+    -U --no-unescape        Don't have JSON::SL unescape strings
 EOF
     exit(1);
 }
@@ -60,28 +65,10 @@ if ($TestJsonpointer) {
     print Dumper(\@all);
     print Dumper($o->root);
 }
-my ($begin,$duration);
-
-if ($TestJsonxs) {
-    $begin = time();
-    foreach (0..$Iterations) {
-        my $res = decode_json($txt);
-    }
-    $duration = time() - $begin;
-    printf("$Iterations Iterations: JSON::XS %0.2f\n", $duration);
-}
-
-if ($TestJsonsl) {
-    $begin = time();
-    foreach (0..$Iterations) {
-        my $res = JSON::SL::decode_json($txt);
-    }
-    my $duration = time() - $begin;
-    printf("$Iterations Iterations: JSON::SL %0.2f\n", $duration);
-}
 
 my @Chunks;
 if ($TestChunks) {
+    printf("Splitting file into chunks..\n");
     my $copy = $txt;
     while ($copy) {
         my $len = length($copy);
@@ -91,37 +78,50 @@ if ($TestChunks) {
         $copy = substr($copy, $chunk);
         push @Chunks, $frag;
     }
-    
-    printf("Testing chunked/incremental parsing with %d %dB chunks\n",
-           scalar @Chunks, $TestChunks);
-    if ($TestJsonxs) {
-        $begin = time();
-        my $xs = JSON::XS->new();
-        for (0..$Iterations) {
-            $xs->incr_reset();
-            foreach my $chunk (@Chunks) {
-                last if !$chunk;
-                my @o = $xs->incr_parse($chunk);
-            }
-        }
-        $duration = time() - $begin;
-        printf("$Iterations iterations: JSON::XS %0.2f\n",
-               $duration);
+}
+
+my $sl_incr = JSON::SL->new($RecursionLimit);
+my $xs_incr = JSON::XS->new();
+
+sub jsonsl_complete {
+    JSON::SL::decode_json($txt);
+}
+
+sub jsonsl_incr {
+    $sl_incr->reset();
+    my $res = $sl_incr->feed($_) for @Chunks;
+}
+
+sub jsonxs_complete {
+    JSON::XS::decode_json($txt);
+}
+
+sub jsonxs_incr {
+    $xs_incr->incr_reset();
+    my $res = $xs_incr->incr_parse($_) for @Chunks;
+}
+
+my %SimpleTests;
+my %IncrTests;
+
+if ($TestJsonxs) {
+    $SimpleTests{'JSON::XS decode_json'} = \&jsonxs_complete;
+    if (@Chunks) {
+        $IncrTests{'JSON::XS incr_parse'} = \&jsonxs_incr;
     }
-    
-    if ($TestJsonsl) {
-        my $sl = JSON::SL->new($RecursionLimit);
-        $begin = time();
-        
-        for (0..$Iterations) {
-            $sl->reset();
-            foreach my $chunk (@Chunks) {
-                last if !$chunk;
-                my @o = $sl->feed($chunk);
-            }
-        }
-        $duration = time() - $begin;
-        printf("$Iterations iterations: JSON::SL %0.2f\n",
-               $duration);
+}
+
+if ($TestJsonsl) {
+    $SimpleTests{'JSON::SL decode_json'} = \&jsonsl_complete;
+    if (@Chunks) {
+        $IncrTests{'JSON::SL feed'} = \&jsonsl_incr;
     }
+}
+
+printf("Running decode_json tests with input of %d bytes\n", length($txt));
+cmpthese($Iterations, \%SimpleTests);
+if (@Chunks) {
+    
+    print "Running incremental tests\n";
+    cmpthese($Iterations, \%IncrTests);
 }

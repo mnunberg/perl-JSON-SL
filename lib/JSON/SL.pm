@@ -7,7 +7,7 @@ use base qw(Exporter);
 our @EXPORT_OK = qw(decode_json unescape_json_string);
 
 BEGIN {
-    $VERSION = '0.0_1';
+    $VERSION = '0.0_2';
     require XSLoader;
     XSLoader::load(__PACKAGE__, $VERSION);
 }
@@ -43,29 +43,61 @@ JSON::SL - Fast, Streaming, and Searchable JSON decoder.
 
 =head1 SYNOPSIS
 
-    # An incomplete stream..
+    use JSON::SL;
+    use Data::Dumper;
     
-    my $txt = <<'EOT'
+    my $txt = <<'EOT';
     {
         "some" : {
-            "partial" : [42]
+            "partial" : 42.42
         },
         "other" : {
             "partial" : "a string"
         },
+        "complex" : {
+            "partial": {
+                "a key" : "a value"
+            }
+        },
         "more" : {
-            "more" :
+            "more" : "stuff"
     EOT
     
-    my $json = JSON::SL->new(512);
-    $json->set_jsonpointer( ["/some/^/partial"] );
+    my $json = JSON::SL->new();
+    my $jpath = "/^/partial";
+    $json->set_jsonpointer( [$jpath] );
     my @results = $json->feed($txt);
     
-    $results[0]->{Value}->[0] == 42;
-    $results[1]->{Value} eq 'a string';
+    foreach my $result (@results) {
+        printf("== Got result (path %s) ==\n", $result->{Path});
+        printf("Query was %s\n", $result->{JSONPointer});
+        my $value = $result->{Value};
+        if (!ref $value) {
+            printf("Got scalar value %s\n", $value);
+        } else {
+            printf("Got reference:\n");
+            print Dumper($value);
+        }
+        print "\n";
+    }
     
-    $results[0]->{Path} eq '/some/partial';
-    $results[1]->{Path} eq '/other/partial';
+Produces:
+
+    == Got result (path /some/partial) ==
+    Query was /^/partial
+    Got scalar value 42.42
+    
+    == Got result (path /other/partial) ==
+    Query was /^/partial
+    Got scalar value a string
+    
+    == Got result (path /complex/partial) ==
+    Query was /^/partial
+    Got reference:
+    $VAR1 = {
+              'a key' => 'a value'
+            };
+
     
 =head2 DESCRIPTION
 
@@ -315,6 +347,62 @@ To quote:
     See SECURITY CONSIDERATIONS in L<JSON::XS>, for more info on why this is useful.
 
 
+=head3 object_drip(boolean)
+
+As an alternative to using JSONPointer, you can use an 'object drip'. With this
+setting enabled, all hashes and arrays will be returned via C<feed> or L<fetch>
+in reverse order (i.e. the deepest objects are returned first, followed by
+their encapsulated objects).
+
+This allows you to inspect complete descendent objects as they arrive.
+
+The objects returned by C<fetch> and C<feed> will still follow the same semantics,
+with context/path information stored inside the C<Path> key. The C<JSONPointer>
+field is obviously not passed since it is not being used.
+
+Example:
+
+    use JSON::SL;
+    use Test::More;
+    
+    my $sl = JSON::SL->new();
+    $sl->object_drip(1);
+    
+    # create an incomplete JSON object:
+    
+    my $json = <<'EOJ';
+    [ [ { "key1":"foo", "key2":"bar", "key3":"baz" }
+    EOJ
+    
+    my @res = $sl->feed($json);
+    
+    my $expected = [
+        {
+            Value => "foo",
+            Path => '/0/0/key1',
+        },
+        {
+            Value => "bar",
+            Path => '/0/0/key2',
+        },
+        {
+            Value => "baz",
+            Path => '/0/0/key3'
+        },
+        {
+            Value => {},
+            Path => '/0/0'
+        },
+    ];
+    
+    is_deeply(\@res, $expected, "Got expected results for object drip...");
+
+
+Outer encapsulating objects will have their children removed (as they have
+already been returned in previous results).
+
+Only I<complete> objects (i.e. objects which can no longer contain any more data)
+will be returned.
 
 =head3 unescape_settings()
 
@@ -406,10 +494,14 @@ undef if the input was empty. Dies on invalid input.
 Both L</decode_json> and L</feed> output already-unescaped strings, so there is
 no need to call this function on strings returned by those methods.
 
-=head1 BUGS
+=head1 BUGS & CAVEATS
+
+=head2 Threads
 
 This will most likely not work with threads, although one would wonder why
 you would want to use this module across threads.
+
+=head2 Object Trees
 
 When inspecting the object tree, you may see some C<undef> values, and it
 is impossible to determine whether those values are JSON C<null>s, or
@@ -417,21 +509,58 @@ placeholder values. It would be possible to implement a class e.g.
 C<JSON::SL::Placeholder>, but doing so would either be unsafe or incur
 additional overhead.
 
+
+=head2 JSONPointer
+
 The C<^> caret is somewhat obscure as a wildcard character
 
 Currently wildcard matching is all-or-nothing, meaning that constructs such
 as C<foo^> will not work.
 
+=head2 Encodings
+
+All input to C<JSON::SL> should be either UTF-8 or ASCII (a subset of UTF-8).
+
+More specifically, the input stream must be any superset of ASCII which uses
+octet streams (so this includes Latin1).
+
+Perl itself only natively deals with 8-bit ASCII, Latin1, or UTF8 - so if your
+input stream is something else (for example, UTF-16) it will need to be converted
+to UTF8 some point in time before it is passed to C<JSON::SL>.
+
+=head1 Speed
+
+C<JSON::SL> aims to be the fastest JSON decoded for Perl. Currently it is only
+in second place - being 25% slower than L<JSON::XS> for C<decode_json> and
+about 8% slower for incremental parsing.
+
+Additionally, if your input has lots of escapes (not very common in real-world
+JSON), C<JSON::SL> will be even slower.
+
+Nevertheless I believe that the benefits provided by JSON::SL save not only human
+time, but also machine time - What good is quickly decoding a large JSON stream
+if there are no proper facilities to inspect it?.
+
+=head1 TODO
+
+Work is in progress for a SAX-style interface. Stay tuned
 
 =head1 SEE ALSO
 
-L<JSON::XS> - Still faster than this module
+L<JSON::XS> - Still faster than this module, and is also the source of many of
+C<JSON::SL>'s ideas and tests.
 
 If you wish to aid in the development of the JSON parser, do B<not> modify
 the source files in the perl distribution, they are merely copied over from
 here:
 
-L<jsonsl | https://github.com/mnunberg/jsonsl> - C core for JSON::SL
+L<jsonsl|https://github.com/mnunberg/jsonsl> - C core for JSON::SL
+
+L<JSON|http://www.json.org> - JSON's main page
+
+L<JSON Specification|http://www.ietf.org/rfc/rfc4627.txt?number=4627>
+
+L<JSONPointer Specification|http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02>
 
 
 =head1 AUTHOR & COPYRIGHT

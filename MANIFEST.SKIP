@@ -5,3 +5,8 @@ log\.*
 
 #ignore komodo project file
 \.kpf
+
+\.git.+
+
+\.swp
+dump.+

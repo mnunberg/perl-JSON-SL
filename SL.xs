@@ -29,7 +29,7 @@ static int PLJSONSL_Escape_Table_dfl[0x80];
     ESCTBL['t'] = 1;
 
 
-#if PERL_VERSION >= 10
+#ifdef PLJSONSL_HAVE_HV_COMMON
 #define pljsonsl_hv_storeget_he(pjsn, hv, buf, len, value) \
     hv_common((HV*)(hv), NULL, buf, len, 0, HV_FETCH_ISSTORE, value, 0)
 
@@ -39,7 +39,6 @@ static int PLJSONSL_Escape_Table_dfl[0x80];
 #define PLJSONSL_DESTROY_KSV(...)
 
 #else
-#warning "You are using a Perl from the stone age. This code might work.."
 /* probably very dangerous, but the beginning of hv_store_common
  * looks quite simple...
  */
@@ -97,7 +96,7 @@ pljsonsl_hv_delete_okey_THX(pTHX_
 #warning "Using our own HeUTF8 as HeKUTF8"
 #define HeUTF8(he) HeKUTF8(he)
 
-#endif /* 5.10 */
+#endif /* HAVE_HV_COMMON */
 
 
 #define GET_STATE_BUFFER(pjsn, pos) \
@@ -122,9 +121,11 @@ object_mkresult_THX(pTHX_
     (void)hv_stores(info_hv, PLJSONSL_INFO_KEY_##b, v)
     HV *info_hv;
 
-    if (child->matchres != JSONSL_MATCH_COMPLETE || child->type == JSONSL_T_HKEY) {
+    if (pjsn->options.object_drip == 0 &&
+        (child->matchres != JSONSL_MATCH_COMPLETE || child->type == JSONSL_T_HKEY)) {
         return 0;
     }
+
     info_hv = newHV();
     if (SvTYPE(child->sv) == SVt_PVHV || SvTYPE(child->sv) == SVt_PVAV) {
         STORE_INFO(VALUE, newRV_noinc(child->sv));
@@ -132,7 +133,7 @@ object_mkresult_THX(pTHX_
         STORE_INFO(VALUE, child->sv);
     }
 
-    if (pjsn->options.noqstr == 0) {
+    if (pjsn->options.noqstr == 0 && pjsn->options.object_drip == 0) {
         STORE_INFO(QUERY, newSVpvn_share(child->matchjpr->orig,
                                          child->matchjpr->norig, 0));
     }
@@ -170,7 +171,7 @@ object_mkresult_THX(pTHX_
      * and hash types are always added to their parents, even if they
      * are a complete match to be removed from the stack.
      */
-    if (parent->sv) {
+    if (parent && parent->sv) {
         SvREADONLY_off(parent->sv);
         SvREFCNT_inc_simple_void_NN(child->sv);
         if (parent->type == JSONSL_T_LIST) {
@@ -184,7 +185,8 @@ object_mkresult_THX(pTHX_
                                   kbuf, klen,
                                   G_DISCARD,
                                   HeHASH(child->u_loc.key));
-            /* is a macro for:
+            /* for perls with hv_common, the above should be a macro for this: */
+#if 0
             hv_common((HV*)parent->sv,
                       NULL,
                       kbuf, klen,
@@ -192,7 +194,7 @@ object_mkresult_THX(pTHX_
                       HV_DELETE|G_DISCARD,
                       NULL,
                       HeHASH(child->u_loc.key));
-            */
+#endif
             child->u_loc.key = NULL;
         }
 
@@ -217,13 +219,11 @@ process_special_THX(pTHX_
 #define MAKE_BOOLEAN_BLESSED_IV(v) \
     { SV *newiv = newSViv(v); newsv = newRV_noinc(newiv); sv_bless(newsv, pjsn->stash_boolean); } \
 
+    int ndigits;
+
+
 
     switch (state->special_flags) {
-    case JSONSL_SPECIALf_UNSIGNED:
-    case JSONSL_SPECIALf_SIGNED:
-        newsv = jsonxs_inline_process_number(buf);
-        break;
-
     case JSONSL_SPECIALf_TRUE:
         if (state->pos_cur - state->pos_begin != 4) {
             die("Expected 'true'");
@@ -245,7 +245,46 @@ process_special_THX(pTHX_
         newsv = &PL_sv_undef;
         break;
 
+        /* Simple signed/unsigned numbers, no exponents or fractions to worry about */
+    case JSONSL_SPECIALf_UNSIGNED:
+        ndigits = state->pos_cur - state->pos_begin;
+        if (ndigits == 1) {
+            newsv = newSVuv(state->nelem);
+            break;
+        } /* else, ndigits > 1 */
+        if (*buf == '0') {
+            die("JSON::SL - Malformed number (leading zero for non-fraction)");
+        }
+        if (ndigits < UV_DIG) {
+            newsv = newSVuv(state->nelem);
+            break;
+        } /* else, potential overflow */
+        newsv = jsonxs_inline_process_number(buf);
+        break;
+
+    case JSONSL_SPECIALf_SIGNED:
+        ndigits = (state->pos_cur - state->pos_begin)-1;
+        if (ndigits == 0) {
+            die("JSON::SL - Found lone '-'");
+        }
+        if (buf[1] == '0') {
+            die("JSON::SL - Malformed number (zero after '-'");
+        }
+
+        if (ndigits < (IV_DIG-1)) {
+            newsv = newSViv(-((IV)state->nelem));
+            break;
+        } /*else */
+        newsv = jsonxs_inline_process_number(buf);
+        break;
+
+
+
     default:
+        if (state->special_flags & (JSONSL_SPECIALf_FLOAT|JSONSL_SPECIALf_EXPONENT)) {
+            newsv = jsonxs_inline_process_number(buf);
+            break;
+        }
         warn("Buffer is %p", buf);
         warn("Length is %lu", state->pos_cur - state->pos_begin);
         warn("Special flag is %d", state->special_flags);
@@ -495,7 +534,9 @@ static void body_pop_callback(jsonsl_t jsn,
     #undef INSERT_STRING
 
     if (state->sv == pjsn->root && pjsn->njprs == 0) {
-        av_push(pjsn->results, newRV_noinc(pjsn->root));
+        if (!pjsn->options.object_drip) {
+            av_push(pjsn->results, newRV_noinc(pjsn->root));
+        } /* otherwise, already pushed */
         pjsn->root = NULL;
         jsn->action_callback_PUSH = initial_callback;
     }
@@ -609,7 +650,7 @@ pljsonsl_get_and_initialize_global(pTHX)
     jsonsl_enable_all_callbacks(pjsn->jsn);
     pjsn->jsn->error_callback = error_callback;
     pjsn->jsn->action_callback_PUSH = initial_callback;
-    pjsn->results = sv_2mortal((SV*)newAV());
+    pjsn->results = (AV*)sv_2mortal((SV*)newAV());
     return pjsn;
 }
 
@@ -713,8 +754,9 @@ pltuba_invoke_callback_THX(pTHX_ PLTUBA *tuba,
     ENTER;
     SAVETMPS;
     PUSHMARK(SP);
+    XPUSHs(tuba->selfrv);
     XPUSHs(sv_2mortal(newSViv(action)));
-    XPUSHs(sv_2mortal(newSViv(cbtype)));
+    XPUSHs(sv_2mortal(newSViv(cbtype & 0x7f)));
     if (mextrasv) {
         XPUSHs(sv_2mortal(mextrasv));
     }
@@ -736,20 +778,24 @@ pltuba_flush_characters_THX(pTHX_ PLTUBA *tuba, size_t until)
     size_t toFlush;
     const char *buf;
     SV *chunksv;
-
-    if (until <= tuba->buf_pos) {
+    if (!tuba->keep_pos) {
         return;
     }
 
-    toFlush = until - tuba->buf_pos;
+    toFlush = until - tuba->keep_pos;
+    buf = GET_STATE_BUFFER(tuba, tuba->keep_pos);
+
+    if (tuba->shift_quote) {
+        buf++;
+        toFlush--;
+    }
+
+    tuba->keep_pos = 0;
+    tuba->shift_quote = 0;
 
     if (toFlush == 0) {
         return;
     }
-
-    toFlush -= tuba->chardata_begin_offset;
-    buf = SvPVX_const(tuba->buf);
-    buf += tuba->chardata_begin_offset;
     chunksv = newSVpvn(buf, toFlush);
     pltuba_invoke_callback(tuba,
                            JSONSL_ACTION_PUSH,
@@ -758,46 +804,61 @@ pltuba_flush_characters_THX(pTHX_ PLTUBA *tuba, size_t until)
     /**
      * SV has been mortalized by the invoke_callback function
      */
-    sv_chop(tuba->buf, buf);
-    tuba->buf_pos = until;
 }
-
 /**
- * Unified callback
+ * Push callback. This is easy because we never actually do any character
+ * data here.
  */
 static void
-pltuba_jsonsl_callback(jsonsl_t jsn,
-                       jsonsl_action_t action,
-                       struct jsonsl_state_st *state,
-                       const char *at)
+pltuba_jsonsl_push_callback(jsonsl_t jsn,
+                            jsonsl_action_t action,
+                            struct jsonsl_state_st *state,
+                            const char *at)
 {
-    /* Figure out the difference between now and the last callback */
     PLTUBA *tuba = (PLTUBA*)jsn->data;
     PLJSONSL_dTHX(tuba);
-    size_t pos = (action == JSONSL_ACTION_POP) ? state->pos_cur : state->pos_begin;
-
-    if (pos && pos > tuba->last_cb_pos) {
-        pltuba_flush_characters(tuba, pos);
+    if (state->level == 1) {
+        pltuba_invoke_callback(tuba, action, PLTUBA_CALLBACK_DOCUMENT, NULL);
     }
-    tuba->last_cb_pos = pos;
-    /* Piece together a callback specification */
-    if (state->type & JSONSL_Tf_STRINGY) {
-        tuba->chardata_begin_offset = 1;
+
+#define X(o,c) \
+    if (state->type == JSONSL_T_##o) { \
+        pltuba_invoke_callback(tuba, action, PLTUBA_CALLBACK_##o, NULL); \
+    }
+    JSONSL_XTYPE;
+#undef X
+    if (!JSONSL_STATE_IS_CONTAINER(state)) {
+        tuba->keep_pos = state->pos_begin;
+        if (state->type & JSONSL_Tf_STRINGY) {
+            tuba->shift_quote = 1;
+        }
     } else {
-        tuba->chardata_begin_offset = 0;
+        tuba->keep_pos = 0;
+    }
+}
+
+static void
+pltuba_jsonsl_pop_callback(jsonsl_t jsn,
+                           jsonsl_action_t action,
+                           struct jsonsl_state_st *state,
+                           const char *at)
+{
+    PLTUBA *tuba = (PLTUBA*)jsn->data;
+    PLJSONSL_dTHX(tuba);
+
+    if ((state->type & JSONSL_Tf_STRINGY)
+            || state->type == JSONSL_T_SPECIAL) {
+        pltuba_flush_characters(tuba, state->pos_cur);
     }
 #define X(o,c) \
     if (state->type == JSONSL_T_##o) { \
         pltuba_invoke_callback(tuba, action, PLTUBA_CALLBACK_##o, NULL); \
-        goto GT_CB_DONE; \
     }
     JSONSL_XTYPE;
 #undef X
-    if (state->level == 1 && action == JSONSL_ACTION_POP) {
+    if (state->level == 1) {
         pltuba_invoke_callback(tuba, action, PLTUBA_CALLBACK_DOCUMENT, NULL);
     }
-    GT_CB_DONE:
-    return;
 }
 
 static int
@@ -822,13 +883,15 @@ pltuba_feed_THX(pTHX_ PLTUBA *tuba, SV *input)
         die("Input is not string!");
     }
     tuba->buf = input;
-    tuba->buf_pos = tuba->jsn->pos;
+    tuba->pos_min_valid = tuba->jsn->pos;
 
     SvREADONLY_on(input);
     jsonsl_feed(tuba->jsn, SvPVX_const(input), SvCUR(input));
-    if (SvCUR(input)) {
-        /* Assume the rest is 'character' data */
-        pltuba_flush_characters(tuba, SvCUR(input) + tuba->buf_pos);
+    if (tuba->keep_pos) {
+        int old_shift = tuba->shift_quote;
+        pltuba_flush_characters(tuba, tuba->jsn->pos);
+        tuba->keep_pos = tuba->jsn->pos;
+        tuba->shift_quote = old_shift;
     }
     SvREADONLY_off(input);
 }
@@ -837,7 +900,8 @@ pltuba_feed_THX(pTHX_ PLTUBA *tuba, SV *input)
     X(noqstr) \
     X(nopath) \
     X(utf8) \
-    X(max_size)
+    X(max_size) \
+    X(object_drip)
 
 enum {
 
@@ -1034,6 +1098,7 @@ PLJSONSL__option(PLJSONSL *pjsn, ...)
     nopath = OPTION_IX_nopath
     noqstr = OPTION_IX_noqstr
     max_size = OPTION_IX_max_size
+    object_drip = OPTION_IX_object_drip
 
     CODE:
     RETVAL = 0;
@@ -1134,7 +1199,7 @@ PLJSONSL_decode_json(SV *input)
     pjsn->jsn->action_callback_PUSH = initial_callback;
 
     RETURN_RESULTS(pjsn);
-    if (!result_count) {
+    if (result_count == 0 && av_len(pjsn->results) == -1) {
         die("Incomplete JSON string?");
     }
 
@@ -1188,25 +1253,28 @@ PLJSONSL_CLONE(PLJSONSL *pjsn)
 MODULE = JSON::SL PACKAGE = JSON::SL::Tuba PREFIX = PLTUBA_
 
 SV *
-PLTUBA__initialize(SV *pkg)
+PLTUBA__initialize(const char *pkg)
     PREINIT:
     PLTUBA *tuba;
     SV *ptriv, *retrv;
+    HV *subclass;
     dMY_CXT;
-
     CODE:
-    (void)pkg;
-
+    subclass = gv_stashpv(pkg, GV_ADD);
     Newxz(tuba, 1, PLTUBA);
     tuba->jsn = jsonsl_new(PLJSONSL_MAX_DEFAULT);
     ptriv = newSViv(PTR2IV(tuba));
     retrv = newRV_noinc(ptriv);
-    sv_bless(retrv, MY_CXT.stash_tuba);
+    sv_bless(retrv, subclass);
 
-    tuba->jsn->action_callback = pltuba_jsonsl_callback;
+    tuba->selfrv = newRV_inc(ptriv);
+    sv_rvweaken(tuba->selfrv);
+    tuba->jsn->action_callback_PUSH = pltuba_jsonsl_push_callback;
+    tuba->jsn->action_callback_POP = pltuba_jsonsl_pop_callback;
     tuba->jsn->error_callback = pltuba_jsonsl_error_callback;
     jsonsl_enable_all_callbacks(tuba->jsn);
     PLJSONSL_mkTHX(tuba);
+    tuba->jsn->data = tuba;
     RETVAL = retrv;
 
     OUTPUT: RETVAL

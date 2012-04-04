@@ -3,7 +3,6 @@ use strict;
 use warnings;
 use Test::More;
 use JSON::SL qw(unescape_json_string);
-use Data::Dumper::Concise;
 use utf8;
 
 my $jsn = JSON::SL->new();
@@ -29,7 +28,6 @@ $res = $sl->feed($str);
 ok($res, "Got result..");
 ok(exists $res->{'LF_Key\n'}, "embedded '\\n' key in tact");
 is($res->{'LF_Key\n'}, 'LF_Value\n', '\n value in tact');
-#print Dumper($res);
 
 $sl->unescape_settings(n => 1);
 $sl->reset();
