@@ -69,15 +69,7 @@ if ($TestJsonpointer) {
 my @Chunks;
 if ($TestChunks) {
     printf("Splitting file into chunks..\n");
-    my $copy = $txt;
-    while ($copy) {
-        my $len = length($copy);
-        my $chunk = $TestChunks;
-        $chunk = $len if $chunk > $len;
-        my $frag = substr($copy, 0, $chunk);
-        $copy = substr($copy, $chunk);
-        push @Chunks, $frag;
-    }
+    @Chunks = unpack("(a$TestChunks)*", $txt);
 }
 
 my $sl_incr = JSON::SL->new($RecursionLimit);
@@ -121,7 +113,7 @@ if ($TestJsonsl) {
 printf("Running decode_json tests with input of %d bytes\n", length($txt));
 cmpthese($Iterations, \%SimpleTests);
 if (@Chunks) {
-    
+
     print "Running incremental tests\n";
     cmpthese($Iterations, \%IncrTests);
 }

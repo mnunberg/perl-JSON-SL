@@ -7,9 +7,14 @@ lib/JSON/SL/EscapeTH.pm
 
 lib/JSON/SL/Tuba.pm
 
+srcutil/method_dispatch.pl
+srcutil/accessors.pl
+
+srcout/option_accessors.xs
 
 perl-jsonsl.h
 jsonxs_inline.h
+tuba_dispatch_getmeth.h
 
 jsonsl.h
 jsonsl.c
@@ -37,3 +42,5 @@ t/20-object_drip.t
 
 eg/bench.pl
 eg/synopsis.pl
+eg/couchrow.pl
+eg/tuba.pl

@@ -27,7 +27,8 @@
 #define PLJSONSL_PLACEHOLDER_NAME "JSON::SL::Placeholder"
 
 #define PLTUBA_CLASS_NAME "JSON::SL::Tuba"
-#define PLTUBA_HELPER_FUNC "JSON::SL::Tuba::_plhelper"
+#define PLTUBA_HKEY_NAME "_TUBA"
+
 
 #if PERL_VERSION >= 10
 #define PLJSONSL_HAVE_HV_COMMON
@@ -81,6 +82,9 @@
 #endif /* PERL_IMPLICIT_CONTEXT */
 
 
+/*
+ * This is the 'abstract base class' for both JSON::SL and JSON::SL::Tuba
+ */
 #define PLJSONSL_COMMON_FIELDS \
     /* The lexer */ \
     jsonsl_t jsn;  \
@@ -91,10 +95,28 @@
     /* Position of the beginning of the earlist of (SPECIAL,STRINGY) */ \
     size_t keep_pos; \
     /* Context for threaded Perls */ \
-    void *pl_thx;
+    void *pl_thx; \
+    /* Stash for booleans */ \
+    HV *stash_boolean; \
+    /* Escape table */ \
+    int escape_table[0x80];
+
+/* These are the escapes we care about: */
+#define PLJSONSL_ESCTBL_INIT(tbl) \
+    memset(ESCTBL, 0, sizeof(ESCTBL)); \
+    tbl['"'] = 1; \
+    tbl['\\'] = 1; \
+    tbl['/'] = 1; \
+    tbl['b'] = 1; \
+    tbl['n'] = 1; \
+    tbl['r'] = 1; \
+    tbl['f'] = 1; \
+    tbl['u'] = 1; \
+    tbl['t'] = 1;
+
 
 typedef struct {
-    PLJSONSL_COMMON_FIELDS;
+    PLJSONSL_COMMON_FIELDS
 
     /* Root perl data structure. This is either an HV* or AV* */
     SV *root;
@@ -121,13 +143,7 @@ typedef struct {
     char *ksv_origpv;
 #endif
 
-    /* Stash for booleans */
-    HV *stash_boolean;
 
-    /**
-     * Variables the user might set or be interested in (via function calls,
-     * of course) are here:
-     */
     struct {
         int utf8; /** Set the SvUTF8 flag */
         int nopath; /** Don't include path context in results */
@@ -163,26 +179,57 @@ typedef struct {
     /**
      * Escape preferences
      */
-    int escape_table[0x80];
 } PLJSONSL;
+
+
+#define PLTUBA_XCALLBACK \
+    JSONSL_XTYPE \
+    X(DATA, 'c') \
+    X(ERROR, '!') \
+    X(JSON, 'D') \
+    X(NUMBER, '=') \
+    X(BOOLEAN, '?') \
+    X(NULL, '~') \
+    X(ANY, '.') \
 
 typedef enum {
 #define X(o,c) \
     PLTUBA_CALLBACK_##o = c,
-    JSONSL_XTYPE
+    PLTUBA_XCALLBACK
 #undef X
-    PLTUBA_CALLBACK_CHARACTER = 'c',
-    PLTUBA_CALLBACK_ERROR = '!',
-    PLTUBA_CALLBACK_DOCUMENT = 'D'
+    PLTUBA_CALLBACK_blah
 } pltuba_callback_type;
+
+#define PLTUBA_ACTION_ON '>'
+
+
+#define PLTUBA_DEFINE_XMETHGV
+#include "tuba_dispatch_getmeth.h"
+#undef PLTUBA_DEFINE_XMETHGV
+
+/* These are stringified as the 'Info' keys */
+#define PLTUBA_XPARAMS \
+    X(Escaped) \
+    X(Key) \
+    X(Type) \
+    X(Mode) \
+    X(Value) \
+    X(Index)
+
 
 /**
  * This can be considered to be a 'subset' of the
  * PLJSONSL structure, but with some slight subtleties and
  * differences.
  */
+
+struct pltuba_param_entry_st {
+    HE *he;
+    SV *sv;
+};
+
 typedef struct {
-    PLJSONSL_COMMON_FIELDS;
+    PLJSONSL_COMMON_FIELDS
 
     /* When we invoke a callback, instead of re-creating the
      * mortalized rv each time, we just keep a static reference
@@ -190,13 +237,97 @@ typedef struct {
      */
     SV *selfrv;
 
+    /* This is last known stash for our methods.
+     * In the rare event that someone decides to rebless
+     * us into a different class, we compare and swap out
+     * in favor of the new one (SvSTASH(SvRV(tuba->selfrv)));
+     */
+    HV *last_stash;
+
     /* set by hkey and string callbacks */
     int shift_quote;
 
     /* Options */
     struct {
         int utf8;
+        int no_cache_mro;
+        int accum_kv;
+        int cb_unified;
     } options;
+
+#define PLTUBA_METHGV_STRUCT
+#include "tuba_dispatch_getmeth.h"
+#undef PLTUBA_METHGV_STRUCT
+    /* The accumulators */
+    SV *accum;
+    SV *kaccum;
+
+    /**
+     * The following structures contain registers for the
+     * HEs which are hash entries for the info hash, and the
+     * corresponding SVs which they contain.
+     */
+    struct {
+#define X(vname) \
+    struct pltuba_param_entry_st pe_##vname;
+        PLTUBA_XPARAMS
+#undef X
+    } p_ents;
+
+    /* Our info hash, and its reference */
+    HV *paramhv;
+    SV *paramhvrv;
+
+    /* Table of various callbacks to invoke */
+    int accum_options[0x100];
+
 } PLTUBA;
+
+/**
+ * These macros manipulate the static entries within the hash
+ * which is passed into callbacks.
+ * There are two primary variables to work with:
+ * 1) The actual static SV which contains the value
+ * 2) The HE which points to the SV
+ *
+ * And three operations
+ * 1) Assigning the value to the SV
+ * 2) Tying the HE with the SV, so a lookup on the hash
+ * entry yields the SV
+ * 3) Decoupling the HE and the SV, so the SV remains allocated
+ * but the HE will now point to &PL_sv_placeholder and not yield
+ * a result.
+ */
+#define PLTUBA_PARAM_FIELD(tuba, b) \
+    (tuba->p_ents.pe_##b)
+
+/**
+ * Assign an SV to the named field. The HE is made to point to the SV
+ */
+#define PLTUBA_SET_PARAMFIELDS_sv(tuba, field, sv) \
+    HeVAL(PLTUBA_PARAM_FIELD(tuba,field).he) = sv;
+
+/**
+ * Convenience macro which assigns the SV to the HE, and then sets
+ * the IVX slot.
+ */
+#define PLTUBA_SET_PARAMFIELDS_iv(tuba, field, iv) \
+        /* assign the IV */ \
+        assert(PLTUBA_PARAM_FIELD(tuba,field).sv); \
+        assert(SvIOK(PLTUBA_PARAM_FIELD(tuba,field).sv)); \
+    SvIVX(PLTUBA_PARAM_FIELD(tuba, field).sv) = iv; \
+        /* set the he's value to the just-assigned sv */ \
+    PLTUBA_SET_PARAMFIELDS_sv(tuba, field, PLTUBA_PARAM_FIELD(tuba,field).sv)
+
+#define PLTUBA_SET_PARAMFIELDS_dv(tuba, field, c) \
+    PLTUBA_SET_PARAMFIELDS_iv(tuba, field, c); \
+    *SvPVX(PLTUBA_PARAM_FIELD(tuba,field).sv) = (char)c; \
+
+/**
+ * Sets the HE to point to &PL_sv_placeholder.
+ */
+#define PLTUBA_RESET_PARAMFIELD(tuba, field) \
+    HeVAL(PLTUBA_PARAM_FIELD(tuba, field).he) = &PL_sv_placeholder;
+
 
 #endif /* PERL_JSONSL_H_ */

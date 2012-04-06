@@ -17,7 +17,7 @@ WriteMakefile(
       ? ('LICENSE'=> 'perl')
       : ()),
     PL_FILES            => {},
-#    OPTIMIZE            => '-Wall -ggdb3 -O3',
+#    OPTIMIZE            => '-Wall -ggdb3 -O3 -std=gnu89 -pedantic',
     PREREQ_PM => {
         'Test::More' => 0,
     },

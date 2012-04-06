@@ -21,7 +21,7 @@
 #define expect_false(expr) expect ((expr) != 0, 0)
 #define expect_true(expr)  expect ((expr) != 0, 1)
 
-#define jsonxs__atof_scan1(...) jsonxs__atof_scan1_THX(aTHX_ __VA_ARGS__)
+#define jsonxs__atof_scan1(s,a,e,p,m) jsonxs__atof_scan1_THX(aTHX_ s,a,e,p,m)
 INLINE void
 jsonxs__atof_scan1_THX(pTHX_ const char *s,
                         NV *accum, int *expo, int postdp,
@@ -30,8 +30,8 @@ jsonxs__atof_scan1_THX(pTHX_ const char *s,
   UV  uaccum = 0;
   int eaccum = 0;
 
-  // if we recurse too deep, skip all remaining digits
-  // to avoid a stack overflow attack
+  /* if we recurse too deep, skip all remaining digits
+   to avoid a stack overflow attack */
   if (expect_false (--maxdepth <= 0))
     while (((U8)*s - '0') < 10)
       ++s;
@@ -76,8 +76,10 @@ jsonxs__atof_scan1_THX(pTHX_ const char *s,
       uaccum = uaccum * 10 + dig;
       ++eaccum;
 
-      // if we have too many digits, then recurse for more
-      // we actually do this for rather few digits
+      /*
+      if we have too many digits, then recurse for more
+      we actually do this for rather few digits
+       */
       if (uaccum >= (UV_MAX - 9) / 10)
         {
           if (postdp) *expo -= eaccum;
@@ -88,16 +90,19 @@ jsonxs__atof_scan1_THX(pTHX_ const char *s,
         }
     }
 
+  /*
   // this relies greatly on the quality of the pow ()
   // implementation of the platform, but a good
   // implementation is hard to beat.
   // (IEEE 754 conformant ones are required to be exact)
+   *
+   */
   if (postdp) *expo -= eaccum;
   *accum += uaccum * Perl_pow (10., *expo);
   *expo += eaccum;
 }
 
-#define jsonxs__atof(...) jsonxs__atof_THX(aTHX_ __VA_ARGS__)
+#define jsonxs__atof(s) jsonxs__atof_THX(aTHX_ s)
 INLINE NV
 jsonxs__atof_THX (pTHX_ const char *s)
 {
@@ -111,13 +116,13 @@ jsonxs__atof_THX (pTHX_ const char *s)
       neg = 1;
     }
 
-  // a recursion depth of ten gives us >>500 bits
+  /* a recursion depth of ten gives us >>500 bits */
   jsonxs__atof_scan1(s, &accum, &expo, 0, 10);
 
   return neg ? -accum : accum;
 }
 
-#define jsonxs_inline_process_number(...) jsonxs_inline_process_number_THX(aTHX_ __VA_ARGS__)
+#define jsonxs_inline_process_number(s) jsonxs_inline_process_number_THX(aTHX_ s)
 
 INLINE SV *
 jsonxs_inline_process_number_THX(pTHX_ const char *start)
@@ -174,7 +179,7 @@ jsonxs_inline_process_number_THX(pTHX_ const char *start)
     if (!is_nv) {
         int len = c - start;
 
-        // special case the rather common 1..5-digit-int case
+        /* special case the rather common 1..5-digit-int case */
         if (*start == '-')
             switch (len) {
             case 2:
@@ -206,7 +211,7 @@ jsonxs_inline_process_number_THX(pTHX_ const char *start)
             UV uv;
             int numtype = grok_number (start, len, &uv);
             if (numtype & IS_NUMBER_IN_UV
-                )
+                ) {
                 if (numtype & IS_NUMBER_NEG)
                 {
                     if (uv < (UV) IV_MIN
@@ -214,23 +219,23 @@ jsonxs_inline_process_number_THX(pTHX_ const char *start)
                         return newSViv (-(IV)uv);
                 } else
                     return newSVuv (uv);
+            }
         }
 
         len -= *start == '-' ? 1 : 0;
 
-        // does not fit into IV or UV, try NV
+        /* does not fit into IV or UV, try NV */
         if (len <= NV_DIG
             )
-            // fits into NV without loss of precision
+            /* fits into NV without loss of precision */
             return newSVnv (jsonxs__atof (start));
 
-        // everything else fails, convert it to a string
+        /* everything else fails, convert it to a string */
         return newSVpvn (start, c - start);
     }
 
-    // loss of precision here
+    /* loss of precision here */
     return newSVnv (jsonxs__atof (start));
-    fail: return 0;
 }
 
 #undef ERR
