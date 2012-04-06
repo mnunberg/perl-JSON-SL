@@ -809,7 +809,7 @@ pltuba_get_method_info(PLTUBA *tuba,
         goto GT_RETASGN;
     }
 #define PLTUBA_METH_GETMETH
-#include "tuba_dispatch_getmeth.h"
+#include "srcout/tuba_dispatch_getmeth.h"
 #undef PLTUBA_METH_GETMETH
     GT_RETASGN:
     if (gvpp) {

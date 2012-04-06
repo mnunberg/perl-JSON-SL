@@ -11,13 +11,14 @@ srcutil/method_dispatch.pl
 srcutil/accessors.pl
 
 srcout/option_accessors.xs
+srcout/tuba_dispatch_getmeth.h
 
 perl-jsonsl.h
 jsonxs_inline.h
-tuba_dispatch_getmeth.h
 
-jsonsl.h
-jsonsl.c
+jsonsl/jsonsl.c
+jsonsl/jsonsl.h
+
 ppport.h
 
 SL.xs

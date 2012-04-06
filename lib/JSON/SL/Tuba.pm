@@ -2,8 +2,6 @@ package JSON::SL::Tuba;
 use strict;
 use warnings;
 use JSON::SL;
-use Data::Dumper;
-use Log::Fu;
 use base qw(Exporter);
 our @EXPORT;
 
@@ -107,10 +105,6 @@ foreach (['key', '#'],
         my ($tuba,$bool) = @_;
         $tuba->_ax_opt(ord($sym), $bool);
     }
-}
-
-sub on_any {
-    log_warn("Unhandled..");
 }
 
 1;

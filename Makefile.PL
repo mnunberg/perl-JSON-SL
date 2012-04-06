@@ -20,6 +20,7 @@ WriteMakefile(
 #    OPTIMIZE            => '-Wall -ggdb3 -O3 -std=gnu89 -pedantic',
     PREREQ_PM => {
         'Test::More' => 0,
+        'Constant::Generate' => '0.16'
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'JSON-SL-*' },

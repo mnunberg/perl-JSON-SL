@@ -59,8 +59,8 @@
  * non-exportable
  */
 #define JSONSL_API static
-#include "jsonsl.h"
-#include "jsonsl.c"
+#include "jsonsl/jsonsl.h"
+#include "jsonsl/jsonsl.c"
 
 /**
  * For threaded perls, this stores the THX/my_perl context
@@ -204,7 +204,7 @@ typedef enum {
 
 
 #define PLTUBA_DEFINE_XMETHGV
-#include "tuba_dispatch_getmeth.h"
+#include "srcout/tuba_dispatch_getmeth.h"
 #undef PLTUBA_DEFINE_XMETHGV
 
 /* These are stringified as the 'Info' keys */
@@ -256,7 +256,7 @@ typedef struct {
     } options;
 
 #define PLTUBA_METHGV_STRUCT
-#include "tuba_dispatch_getmeth.h"
+#include "srcout/tuba_dispatch_getmeth.h"
 #undef PLTUBA_METHGV_STRUCT
     /* The accumulators */
     SV *accum;

@@ -1,4 +1,10 @@
 Revision history for JSON-SL
+0.04    april 6 2012
+        Added left-out dependency
+
+0.03    april 6 2012
+        Tuba
+
 0.02    april 4 2012
         Added object drip, some more work on tuba
 
