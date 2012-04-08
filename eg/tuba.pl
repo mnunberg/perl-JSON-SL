@@ -42,7 +42,7 @@ EOJ
 
 sub on_any {
     my ($tuba,$info,$data) = @_;
-    
+    #print Dumper(\@_);
     #use constant comparisons
     if ($info->{Type} == TUBA_TYPE_JSON) {
         printf STDERR ("JSON DOCUMENT: %c\n\n", $info->{Mode});
@@ -60,12 +60,11 @@ sub on_any {
     } elsif ($info->{Type} =~ m,[\[\{],) {
         if ($info->{Mode} eq '+') {
             print $info->{Type} . "\n";
-        } else {
-            
+        } else {  
             print $JSON::SL::Tuba::CloseTokens{$info->{Type}} . ",\n";
         }
     } else {
-        if (defined $data) {
+        if (@_ == 3) {
             print $data . ",\n"
         } else {
             die ("hrrm.. what have we here?")
@@ -102,6 +101,7 @@ if ($Silent) {
 
 
 foreach (1..$Iterations) {
-    my $o = My::Giant::Tuba->new();    
+    my $o = My::Giant::Tuba->new();
+    $o->utf8(1);
     $o->parse($_) for @Chunks;
 }

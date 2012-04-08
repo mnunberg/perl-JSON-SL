@@ -524,8 +524,7 @@ it.
 
 =head1 BUGS AND CAVEATS
 
-At this release, no tests have been implemented.
-
+It would be nice to provide an error handler.
 
 =head2 Info Hash
 
