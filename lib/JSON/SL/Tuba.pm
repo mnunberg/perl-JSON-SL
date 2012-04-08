@@ -48,9 +48,14 @@ our %CloseTokens = (
 sub new {
     my ($cls,%options) = @_;
     my $o = $cls->_initialize();
-    if (exists $options{accum_kv} and
+    
+    unless (exists $options{accum_kv} and
         not delete $options{accum_kv}) {
-        $o->accum_kv(0);
+        $o->accum_kv(1);
+    }
+    unless (exists $options{accum_all}and
+        not delete $options{accum_all}) {
+        $o->accum_all(1);
     }
     while (my ($k,$v) = each %options) {
         $o->can($k)->($o,$v);
@@ -85,6 +90,9 @@ sub accum_enabled_for {
 
 sub accum_all {
     my ($tuba,$boolean) = @_;
+    if (@_ != 2) {
+        die("Must have boolean argument!");
+    }
     my %opts = map {
         $_, $boolean
     } ('=','~','#','?','"');
@@ -483,6 +491,13 @@ but should be turned on if you don't care about that fact.
 =head4 $tuba->utf8(boolean)
 
 Tell Tuba to set the C<SvUTF8> flag on strings.
+
+=head4 $tuba->allow_unhandled(boolean)
+
+By default, Tuba will croak if it cannot find a handler method for a given event
+(this effectively means the C<on_any> method has not been implemented). This is
+usually what you want. To disable this behavior, set C<allow_unhandled> to a true
+value.
 
 =head2 Parsing Data
 

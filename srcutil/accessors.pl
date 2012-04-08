@@ -5,7 +5,7 @@ use warnings;
 # both these structures have typemaps and a common 'options' field:
 
 my @options = (
-    ["PLTUBA", "JSON::SL::Tuba", [qw(utf8 no_cache_mro cb_unified)]],
+    ["PLTUBA", "JSON::SL::Tuba", [qw(utf8 no_cache_mro cb_unified allow_unhandled)]],
     ["PLJSONSL", "JSON::SL", [qw(utf8 nopath noqstr max_size object_drip)]]
 );
 
@@ -23,22 +23,22 @@ MODULE = JSON::SL PACKAGE = $pkgname PREFIX = $ctype\_
 PROTOTYPES: DISABLED
 
 EOC
-    
+
     my $ix_counter = 1;
     my @defines;
-    
+
     foreach my $optname (@$opts) {
         push @defines, ["$ctype\_OPTION_IX_$optname", $ix_counter, $optname];
         $ix_counter++;
     }
-    
+
     foreach (@defines) {
         my ($macro,$val) = @$_;
         print "#define $macro $val\n";
     }
-    
+
     print <<"EOC";
-    
+
 int
 $ctype\__options($ctype* obj, ...)
     ALIAS:
@@ -50,7 +50,7 @@ EOC
     %-15s = %s
 EOC
     }
-    
+
     print <<"EOC";
     CODE:
     RETVAL = 0;
@@ -60,10 +60,10 @@ EOC
     if (items > 2) {
         die("Usage: %s(o, ... boolean)", GvNAME(GvCV(cv)));
     }
-    
+
     switch(ix) {
 EOC
-    
+
     foreach (@defines) {
         my ($macro,$optname) = @{$_}[0,2];
         print <<"EOC";
@@ -75,14 +75,14 @@ EOC
         break;
 EOC
     }
-    
+
     print <<"EOC";
     default:
         die("Unrecognized IX!?");
         break;
     }
     OUTPUT: RETVAL
-    
+
 EOC
 
 }

@@ -6,6 +6,7 @@
 #include "perl.h"
 #include "XSUB.h"
 #include "ppport.h"
+#include <limits.h>
 /**
  * Default depth limit to use, if none supplied
  */
@@ -35,6 +36,7 @@
 #else
 #warning "You are using a Perl from the stone age. This code might work.."
 #endif /* 5.10.0 */
+
 
 /**
  * Extended fields for a stack state
@@ -253,6 +255,7 @@ typedef struct {
         int no_cache_mro;
         int accum_kv;
         int cb_unified;
+        int allow_unhandled;
     } options;
 
 #define PLTUBA_METHGV_STRUCT

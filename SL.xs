@@ -943,6 +943,11 @@ pltuba_invoke_callback_THX(pTHX_ PLTUBA *tuba,
         }
         PUTBACK;
         call_sv((SV*)GvCV(meth), G_DISCARD);
+    } else {
+        if (!tuba->options.allow_unhandled) {
+            die("Tuba: Cannot find handler for mode 0x%02x action 0x%02x",
+                effective_action, effective_type);
+        }
     }
     FREETMPS; LEAVE;
 }
@@ -1246,7 +1251,8 @@ pltuba_initialize_THX(pTHX_ const char *pkg)
 
 #define X(kname) \
         sv_setpvs(ksv, #kname); \
-        tmphe = hv_store_ent(tuba->paramhv, ksv, &PL_sv_placeholder, 0); \
+        tmphe = hv_store_ent(tuba->paramhv, ksv, &PL_sv_undef, 0); \
+        HeVAL(tmphe) = &PL_sv_placeholder; \
         assert(tmphe); \
         tuba->p_ents.pe_##kname.he = tmphe;
 

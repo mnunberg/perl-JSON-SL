@@ -8,13 +8,15 @@ PROTOTYPES: DISABLED
 #define PLTUBA_OPTION_IX_utf8 1
 #define PLTUBA_OPTION_IX_no_cache_mro 2
 #define PLTUBA_OPTION_IX_cb_unified 3
-    
+#define PLTUBA_OPTION_IX_allow_unhandled 4
+
 int
 PLTUBA__options(PLTUBA* obj, ...)
     ALIAS:
     utf8            = PLTUBA_OPTION_IX_utf8
     no_cache_mro    = PLTUBA_OPTION_IX_no_cache_mro
     cb_unified      = PLTUBA_OPTION_IX_cb_unified
+    allow_unhandled = PLTUBA_OPTION_IX_allow_unhandled
     CODE:
     RETVAL = 0;
     if (ix == 0) {
@@ -23,7 +25,7 @@ PLTUBA__options(PLTUBA* obj, ...)
     if (items > 2) {
         die("Usage: %s(o, ... boolean)", GvNAME(GvCV(cv)));
     }
-    
+
     switch(ix) {
     case PLTUBA_OPTION_IX_utf8:
         RETVAL = obj->options.utf8;
@@ -43,12 +45,18 @@ PLTUBA__options(PLTUBA* obj, ...)
             obj->options.cb_unified = SvIV(ST(1));
         }
         break;
+    case PLTUBA_OPTION_IX_allow_unhandled:
+        RETVAL = obj->options.allow_unhandled;
+        if (items == 2) {
+            obj->options.allow_unhandled = SvIV(ST(1));
+        }
+        break;
     default:
         die("Unrecognized IX!?");
         break;
     }
     OUTPUT: RETVAL
-    
+
 
 MODULE = JSON::SL PACKAGE = JSON::SL PREFIX = PLJSONSL_
 
@@ -59,7 +67,7 @@ PROTOTYPES: DISABLED
 #define PLJSONSL_OPTION_IX_noqstr 3
 #define PLJSONSL_OPTION_IX_max_size 4
 #define PLJSONSL_OPTION_IX_object_drip 5
-    
+
 int
 PLJSONSL__options(PLJSONSL* obj, ...)
     ALIAS:
@@ -76,7 +84,7 @@ PLJSONSL__options(PLJSONSL* obj, ...)
     if (items > 2) {
         die("Usage: %s(o, ... boolean)", GvNAME(GvCV(cv)));
     }
-    
+
     switch(ix) {
     case PLJSONSL_OPTION_IX_utf8:
         RETVAL = obj->options.utf8;
@@ -113,4 +121,4 @@ PLJSONSL__options(PLJSONSL* obj, ...)
         break;
     }
     OUTPUT: RETVAL
-    
+

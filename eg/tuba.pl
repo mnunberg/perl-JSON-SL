@@ -4,7 +4,6 @@ use strict;
 use warnings;
 use blib;
 use JSON::SL::Tuba;
-use Log::Fu;
 use Getopt::Long;
 use Data::Dumper::Concise;
 use utf8;
@@ -13,7 +12,7 @@ GetOptions('f|file=s' => \my $InputFile,
            'c|chunk=i' => \my $ChunkSize,
            'i|iterations=i' => \my $Iterations,
            'a|accumulate' => \my $AccumAll,
-           'q|quiet' => \$Log::Fu::SHUSH);
+           'q|quiet' => \my $Silent);
 
 our @ISA = qw(JSON::SL::Tuba);
 my $JSON;
@@ -96,23 +95,13 @@ if ($ChunkSize) {
 }
 
 open my $devnull, ">", "/dev/null";
-if ($Log::Fu::SHUSH) {
+if ($Silent) {
     select $devnull;
 }
 
 
 
 foreach (1..$Iterations) {
-    my $o = My::Giant::Tuba->new();
-    #we want complete strings/numbers/booleans
-    $o->accum_all(1);
-    
-    #we will be using a single callback for everything. Don't bother looking up
-    #individual callbacks
-    $o->cb_unified(1);
-    
-    #don't deliver the key as a separate event.
-    $o->accum_kv(1);
-    
+    my $o = My::Giant::Tuba->new();    
     $o->parse($_) for @Chunks;
 }

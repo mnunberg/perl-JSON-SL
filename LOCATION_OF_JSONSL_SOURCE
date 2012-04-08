@@ -1,0 +1,13 @@
+Because either me or git are retarded, instead of
+using git submodules, I will simply provide the
+link to the repository containing the source code
+for the jsonsl core code:
+
+https://github.com/mnunberg/jsonsl
+
+nb.
+
+the 'jsonsl' file is a symlink. When you check out
+the jsonsl source code, revive the symlink to point
+to that location..
+
