@@ -361,7 +361,10 @@ object_mkresult_THX(pTHX_
         SvREADONLY_off(parent->sv);
         SvREFCNT_inc_simple_void_NN(child->sv);
         if (parent->type == JSONSL_T_LIST) {
-            av_pop((AV*)parent->sv);
+            SV *popped_sv = av_pop((AV*)parent->sv);
+            if (popped_sv) {
+                SvREFCNT_dec(popped_sv);
+            }
         } else {
             char *kbuf;
             STRLEN klen;

@@ -1,4 +1,7 @@
 Revision history for JSON-SL
+0.06    September 17 2012
+        Fix memory leak for array elements
+
 0.04    april 6 2012
         Added left-out dependency
 
