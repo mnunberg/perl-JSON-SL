@@ -589,8 +589,8 @@ static void body_pop_callback(jsonsl_t jsn,
 
     #undef INSERT_STRING
 
-    if (state->sv == pjsn->root && pjsn->njprs == 0) {
-        if (!pjsn->options.object_drip) {
+    if (state->sv == pjsn->root) {
+        if (pjsn->njprs == 0 && pjsn->options.object_drip == 0) {
             av_push(pjsn->results, newRV_noinc(pjsn->root));
         } /* otherwise, already pushed */
         pjsn->root = NULL;
