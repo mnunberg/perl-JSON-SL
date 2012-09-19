@@ -1,5 +1,8 @@
 Revision history for JSON-SL
-0.06    September 17 2012
+0.08    September 19 2012
+        Fix segfault on multiple elements
+
+0.07    September 17 2012
         Fix memory leak for array elements
 
 0.04    april 6 2012

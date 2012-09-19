@@ -16,7 +16,7 @@ use base qw(Exporter);
 our @EXPORT_OK = qw(decode_json unescape_json_string);
 
 BEGIN {
-    $VERSION = '0.07';
+    $VERSION = '0.08';
     require XSLoader;
     XSLoader::load(__PACKAGE__, $VERSION);
 }
