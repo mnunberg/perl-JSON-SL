@@ -1,19 +1,80 @@
-Revision history for JSON-SL
-0.08    September 19 2012
-        Fix segfault on multiple elements
+commit f8ee5c8b3f52f28738d1cce8e239d0df7692f982
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Dec 14 15:50:54 2012 -0800
 
-0.07    September 17 2012
-        Fix memory leak for array elements
+    Tagged for 1.0 release
 
-0.04    april 6 2012
-        Added left-out dependency
+commit ce76731db39ff24e0c40764e6d6ece03ab194270
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Dec 14 15:49:01 2012 -0800
 
-0.03    april 6 2012
-        Tuba
+    Add test for issue #2
 
-0.02    april 4 2012
-        Added object drip, some more work on tuba
+commit c551b540545bec5e47a7fbde8d2ee79fdd11edfb
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Dec 14 08:03:00 2012 -0800
 
-0.01    Date/time
-        First version, released on an unsuspecting world.
+    JSON-SL[2]: Allow modifiable JSON-null values
 
+commit 07b47fc13b3f729bab3e3f291438696f50f6e62d
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Sep 19 09:53:38 2012 -0700
+
+    Prepare for 0.08
+
+commit 55e83030f2e636c3e2304cac2cd7b595e0685486
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Tue Sep 18 10:14:51 2012 -0700
+
+    Fix segfault on multiple streams..
+
+commit f7ee3f33f2cc4cf3f6f654707ef451628ef83c79
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Mon Sep 17 11:31:29 2012 -0700
+
+    Fix memory leak for array elements
+
+commit 8df1d893a7f5dd51c87aa6852660abde47101a0a
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Apr 8 15:49:40 2012 -0700
+
+    Fixed numeric code (allow -0 to be accepted). Bump version
+
+commit ee3f8a2fee00bee3a179a76585c9a562db3764e3
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Apr 8 01:38:01 2012 -0700
+
+    Added some tuba tests.
+    
+    Initialize hashrefs to &PL_sv_undef rather than &PL_sv_placeholder.
+    Also fixed numeric handling..q
+
+commit 3454ad8ec2fcdc4c66920f638a8b11ba87fcbdb4
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Apr 6 16:37:53 2012 -0700
+
+    submodule again?
+
+commit 87f4838c5f5952c0a10fb93149922ed95393ada5
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Apr 6 16:29:03 2012 -0700
+
+    submodule test
+
+commit 1a2501d66bd76c7e6b664c03f89690ced9d07d40
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Apr 6 04:56:13 2012 -0700
+
+    Tuba tuba tuba. also fixed compiler warnings and some more docs
+
+commit 288c839fdb9e9b2a215460eb66468789a92c00bc
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Wed Apr 4 02:13:14 2012 -0700
+
+    Work on tuba, object_drip
+
+commit 36b5369f5ded427a913227e655b8ae4b6fee5577
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Tue Apr 3 02:20:58 2012 -0700
+
+    initial commit
