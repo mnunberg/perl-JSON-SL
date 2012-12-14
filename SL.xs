@@ -217,7 +217,7 @@ process_special_THX(pTHX_
         newsv = pljsonsl_common_mkboolean(pjsn, state->special_flags);
         break;
     case JSONSL_SPECIALf_NULL:
-        newsv = &PL_sv_undef;
+        newsv = newSV(0);
         break;
     default:
         newsv = pljsonsl_common_mknumeric(state,
