@@ -16,7 +16,7 @@ use base qw(Exporter);
 our @EXPORT_OK = qw(decode_json unescape_json_string);
 
 BEGIN {
-    $VERSION = '1.0.0';
+    $VERSION = '1.0.1';
     require XSLoader;
     XSLoader::load(__PACKAGE__, $VERSION);
 }
@@ -247,6 +247,16 @@ croak if you try so with an 'attempted modification of read-only value' error.
 
 Nevertheless it is useful to get a glimpse of the 'rest' of the JSON document
 not returned via the feed method
+
+B<NOTE> This method is deprecated. Use the L</root_callback> method instead.
+
+=head3 root_callback($cb)
+
+Invoked when the root object is first created. It is passed a reference to the
+root object. Use this method instead of C<root>, as the root object will no
+longer be available via C<root()> once the parsing of the current tree is
+completed. Using a callback oriented mechanism proviedes a better guarantee
+of being able to keep a reference to the root.
 
 =head3 referrent_is_writeable($ref)
 

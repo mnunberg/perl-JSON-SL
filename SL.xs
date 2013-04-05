@@ -618,6 +618,23 @@ static int error_callback(jsonsl_t jsn,
     return 0;
 }
 
+static void invoke_root_cb(PLJSONSL *pjsn)
+{
+    PLJSONSL_dTHX(pjsn);
+    if (!pjsn->options.root_callback) {
+        return;
+    }
+    dSP;
+    ENTER;
+    SAVETMPS;
+    PUSHMARK(SP);
+    XPUSHs(sv_2mortal(newRV_inc(pjsn->root)));
+    PUTBACK;
+    call_sv(pjsn->options.root_callback, G_DISCARD);
+    FREETMPS;
+    LEAVE;
+}
+
 static void initial_callback(jsonsl_t jsn,
                              jsonsl_action_t action,
                              struct jsonsl_state_st *state,
@@ -633,6 +650,10 @@ static void initial_callback(jsonsl_t jsn,
         pjsn->root = (SV*)newHV();
     } else {
         die("Found type %s as root element", jsonsl_strtype(state->type));
+    }
+
+    if (pjsn->options.root_callback) {
+        invoke_root_cb(pjsn);
     }
 
     state->sv = pjsn->root;
@@ -1484,6 +1505,33 @@ PLJSONSL_reset(PLJSONSL *pjsn)
     pjsn->curhk = NULL;
     pjsn->jsn->action_callback_PUSH = initial_callback;
 
+SV*
+PLJSONSL_root_callback(PLJSONSL *pjsn, SV *callback)
+    CODE:
+    RETVAL = pjsn->options.root_callback;
+    if (RETVAL) {
+        SvREFCNT_inc(RETVAL);
+    } else {
+        RETVAL = &PL_sv_undef;
+    }
+
+    if (SvTYPE(callback) == SVt_NULL) {
+        if (pjsn->options.root_callback) {
+            SvREFCNT_dec(pjsn->options.root_callback);
+            pjsn->options.root_callback = NULL;
+        }
+    } else {
+        if (SvTYPE(callback) != SVt_RV ||
+                SvTYPE(SvRV(callback)) != SVt_PVCV) {
+            die("Second argument must be undef or a CODE ref");
+        }
+        if (pjsn->options.root_callback) {
+            SvREFCNT_dec(pjsn->options.root_callback);
+        }
+        pjsn->options.root_callback = newRV_inc(SvRV(callback));
+    }
+
+    OUTPUT: RETVAL
 
 void
 PLJSONSL_DESTROY(PLJSONSL *pjsn)
@@ -1495,6 +1543,7 @@ PLJSONSL_DESTROY(PLJSONSL *pjsn)
         REFDEC_FIELD(pjsn, root);
         REFDEC_FIELD(pjsn, results);
         REFDEC_FIELD(pjsn, buf);
+        REFDEC_FIELD(pjsn, options.root_callback);
     } /* else, it's a mortal and shouldn't be freed */
     jsonsl_jpr_match_state_cleanup(pjsn->jsn);
     if (pjsn->jprs) {

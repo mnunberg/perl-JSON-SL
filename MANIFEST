@@ -44,6 +44,7 @@ t/40-tuba_basic.t
 t/41-tuba_accum_all.t
 t/b100-gh1.t
 t/b100-gh2.t
+t/60-rootcb.t
 
 eg/bench.pl
 eg/synopsis.pl

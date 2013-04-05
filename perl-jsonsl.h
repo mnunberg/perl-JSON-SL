@@ -154,6 +154,9 @@ typedef struct {
         /* ignore the jsonpointer settings and allow an 'iv-drip' of
          * objects to be returned via feed */
         int object_drip;
+
+        /** Callback to invoke when root object is about to be destroyed */
+        SV *root_callback;
     } options;
 
     /**
