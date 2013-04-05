@@ -1,4 +1,16 @@
-commit f8ee5c8b3f52f28738d1cce8e239d0df7692f982
+commit 72712d665e0b669c124030c69211721cf2230085
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Apr 5 12:44:10 2013 -0700
+
+    Allow callback to attain the root object
+
+commit 454a1e5dc3c33249a8b8b2511854adfce847806f
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Dec 14 15:53:54 2012 -0800
+
+    Update MANIFEST to include new tests
+
+commit ae4d2e59e381fcda7473236fcc19b86396b47756
 Author: Mark Nunberg <mnunberg@haskalah.org>
 Date:   Fri Dec 14 15:50:54 2012 -0800
 
