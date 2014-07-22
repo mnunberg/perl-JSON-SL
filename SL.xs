@@ -445,6 +445,9 @@ static void body_push_callback(jsonsl_t jsn,
     if (parent->matchres == JSONSL_MATCH_POSSIBLE) {
         state->matchjpr = jsonsl_jpr_match_state(jsn, state, mkey, mnkey,
                                                  &state->matchres);
+    } else {
+        state->matchjpr = NULL;
+        state->matchres = JSONSL_MATCH_NOMATCH;
     }
 
     /**
