@@ -1,3 +1,19 @@
+commit 20a3362268b09ab4ff0784400530cf198d898b55
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Tue Jul 22 11:12:44 2014 -0700
+
+    Explicitly set state objects to NOMATCH if they don't match
+    
+    Since the state object potentially contains older state data from a
+    previous parse, we might erroneously think the object is a match. Don't
+    do this!
+
+commit 8795e8fa085b6efbbcb0ba9a0fd7f081e80eea40
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Fri Apr 5 12:47:35 2013 -0700
+
+    v1.0.1
+
 commit 72712d665e0b669c124030c69211721cf2230085
 Author: Mark Nunberg <mnunberg@haskalah.org>
 Date:   Fri Apr 5 12:44:10 2013 -0700
