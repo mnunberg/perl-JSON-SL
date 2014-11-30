@@ -50,3 +50,4 @@ eg/bench.pl
 eg/synopsis.pl
 eg/couchrow.pl
 eg/tuba.pl
+eg/json_sl
