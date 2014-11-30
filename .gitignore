@@ -1,0 +1,8 @@
+MYMETA*
+Makefile
+Makefile.old
+SL.c
+*.o
+*.bs
+blib
+pm_to_blib
