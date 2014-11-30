@@ -22,11 +22,31 @@ static int PLJSONSL_Escape_Table_dfl[0x80];
 
 
 #ifdef PLJSONSL_HAVE_HV_COMMON
-#define pljsonsl_hv_storeget_he(pjsn, hv, buf, len, value) \
-    hv_common((HV*)(hv), NULL, buf, len, 0, HV_FETCH_ISSTORE, value, 0)
+#define storeget_he(pjsn, hv, buf, len, value, is_utf8) \
+    hv_common((HV*)(hv), NULL, /*KEYSV*/ \
+        buf, len, \
+        ((is_utf8)?HVhek_UTF8:0), /*flags*/\
+        HV_FETCH_ISSTORE, /*action*/ \
+        value, \
+        0 /* HASH (tell perl to compute) */)
 
-#define pljsonsl_hv_delete_okey(pjsn, hv, buf, len, flags, hash) \
-    hv_common((HV*)(hv), NULL, buf, len, 0, HV_DELETE|flags, NULL, hash)
+#define delete_he(pjsn,hv,he) delete_he_THX(aTHX_ pjsn, hv, he)
+static void
+delete_he_THX(pTHX_ const PLJSONSL *dummy, HV* hv, HE* he)
+{
+    char *kbuf;
+    STRLEN klen;
+    int is_utf8;
+
+    kbuf = HePV(he, klen);
+    is_utf8 = HeUTF8(he);
+    hv_common(hv, NULL, /* KEYSV */
+        kbuf, klen,
+        (is_utf8 ? HVhek_UTF8 : 0), /*flags*/
+        HV_DELETE|G_DISCARD, /*action*/
+        NULL, /* value */
+        HeHASH(he) /*hash value - already computed */);
+}
 
 #define PLJSONSL_INIT_KSV(blah)
 #define PLJSONSL_DESTROY_KSV(blah)
@@ -39,10 +59,12 @@ static int PLJSONSL_Escape_Table_dfl[0x80];
 
 #define CLOBBER_PV(sv,buf,len) \
     SvCUR_set(sv, len); \
-    SvPVX(sv) = buf;
+    SvPVX(sv) = buf; \
+    SvUTF8_off(sv);
+
 #define UNCLOBBER_PV(sv) \
     SvCUR_set(sv, 0); \
-    SvPVX(sv) = NULL;
+    SvPVX(sv) = NULL; \
 
 #define PLJSONSL_INIT_KSV(pjsn) \
     pjsn->ksv = newSV(16); \
@@ -54,35 +76,35 @@ static int PLJSONSL_Escape_Table_dfl[0x80];
         CLOBBER_PV(pjsn->ksv, pjsn->ksv_origpv, 0); \
         SvREFCNT_dec(pjsn->ksv);
 
-#define pljsonsl_hv_storeget_he(...) \
-        pljsonsl_hv_storeget_he_THX(aTHX_ __VA_ARGS__)
+#define storeget_he(...) storeget_he_THX(aTHX_ __VA_ARGS__)
 static HE*
-pljsonsl_hv_storeget_he_THX(pTHX_
-                          PLJSONSL *pjsn,
-                          HV *hv,
-                          const char *buf,
-                          size_t len, SV *value)
+storeget_he_THX(pTHX_ PLJSONSL *pjsn, HV *hv, const char *buf, size_t len,
+                SV *value, int is_utf8)
 {
     HE *ret;
+
     CLOBBER_PV(pjsn->ksv, buf, len);
+    if (is_utf8) {
+        SvUTF8_on(pjsn->ksv);
+    }
     ret = hv_store_ent(hv, pjsn->ksv, value, 0);
     UNCLOBBER_PV(pjsn->ksv);
     return ret;
 }
 
-#define pljsonsl_hv_delete_okey(...) \
-        pljsonsl_hv_delete_okey_THX(aTHX_ __VA_ARGS__)
+#define delete_he(...) delete_he_THX(aTHX_ __VA_ARGS__)
 static void
-pljsonsl_hv_delete_okey_THX(pTHX_
-                          PLJSONSL *pjsn,
-                          HV *hv,
-                          const char *buf,
-                          size_t len,
-                          int flags,
-                          U32 hash)
+delete_he_THX(pTHX_ PLJSONSL *pjsn, HV *hv, HE* he)
 {
+    char *kbuf;
+    STRLEN klen;
+    kbuf = HePV(he, klen);
+
     CLOBBER_PV(pjsn->ksv, buf, len);
-    (void)hv_delete_ent(hv, pjsn->ksv, flags, hash);
+    if (HeUTF8(he)) {
+        SvUTF8_on(pjsn->ksv);
+    }
+    (void)hv_delete_ent(hv, pjsn->ksv, G_DISCARD, HeHASH(he));
     UNCLOBBER_PV(pjsn->ksv);
 }
 
@@ -366,21 +388,15 @@ object_mkresult_THX(pTHX_
                 SvREFCNT_dec(popped_sv);
             }
         } else {
-            char *kbuf;
-            STRLEN klen;
-            kbuf = HePV(child->u_loc.key, klen);
-            SvREADONLY_off(HeVAL(child->u_loc.key));
-            pljsonsl_hv_delete_okey(pjsn, parent->sv,
-                                  kbuf, klen,
-                                  G_DISCARD,
-                                  HeHASH(child->u_loc.key));
-            /* for perls with hv_common, the above should be a macro for this: */
+            HE* child_he = child->u_loc.key;
+            SvREADONLY_off(HeVAL(child_he));
+            delete_he(pjsn, (HV*)parent->sv, child_he);
 #if 0
+            /* for perls with hv_common, the above should be a macro for this: */
             hv_common((HV*)parent->sv,
-                      NULL,
-                      kbuf, klen,
-                      0,
-                      HV_DELETE|G_DISCARD,
+                      NULL, kbuf, klen,
+                      0, /*maybe HVhek_UTF8?*/
+                      HV_DELETE|G_DISCARD ,
                       NULL,
                       HeHASH(child->u_loc.key));
 #endif
@@ -518,25 +534,19 @@ create_hk_THX(pTHX_ PLJSONSL *pjsn,
          * we switch it out to &PL_sv_placeholder so it doesn't appear
          * visible.
          */
-        pjsn->curhk = pljsonsl_hv_storeget_he(pjsn,
-                                            parent->sv,
-                                            buf, len,
-                                            &PL_sv_undef);
-        /* which is really this: */
+        pjsn->curhk = storeget_he(pjsn, parent->sv, buf, len, &PL_sv_undef,
+            /*determine if UTF8: */
+            pjsn->options.utf8 || state->special_flags == JSONSL_SPECIALf_NONASCII);
 #if 0
+        /* which is really this: */
         pjsn->curhk = hv_common((HV*)parent->sv, /* HV*/
                                 NULL, /* keysv */
                                 buf, len,
-                                0, /* flags */
+                                0, /* flags. Maybe setting utf8 */
                                 HV_FETCH_ISSTORE, /*action*/
                                 &PL_sv_undef, /*value*/
                                 0);
 #endif
-        if (pjsn->options.utf8 ||
-                state->special_flags == JSONSL_SPECIALf_NONASCII) {
-            HEK_UTF8_on(HeKEY_hek(pjsn->curhk));
-        }
-
     }
 
     HeVAL(pjsn->curhk) = &PL_sv_placeholder;
