@@ -1,3 +1,29 @@
+commit 2be53e08e91291dececf85ed0dad071797a0460f
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Nov 30 11:08:08 2014 -0800
+
+    Add simple 'json_sl' script (like 'json_pp', 'json_xs', etc.)
+
+commit ecef06059a38c95025eea2eb0216b9fb94f1c0ce
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Nov 30 11:06:20 2014 -0800
+
+    Add .gitignore
+
+commit b6b1bbcc32d71de4fe0ba4af9d87a7f3f96ebe29
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Sun Nov 30 11:01:57 2014 -0800
+
+    RT #100564: Mark HV as containing UTF8 keys when necessary
+    
+    https://rt.cpan.org/Ticket/Display.html?id=100564
+
+commit 3e33df65c1c64479f41906ce809a3fd7ffa07c24
+Author: Mark Nunberg <mnunberg@haskalah.org>
+Date:   Tue Jul 22 11:14:16 2014 -0700
+
+    Bump to version 1.0.2
+
 commit 20a3362268b09ab4ff0784400530cf198d898b55
 Author: Mark Nunberg <mnunberg@haskalah.org>
 Date:   Tue Jul 22 11:12:44 2014 -0700
