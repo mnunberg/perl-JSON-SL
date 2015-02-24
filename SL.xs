@@ -690,6 +690,11 @@ pljsonsl_feed_incr_THX(pTHX_ PLJSONSL* pjsn, SV *input)
 {
     size_t start_pos = pjsn->jsn->pos;
     STRLEN cur_len = SvCUR(pjsn->buf);
+
+    if (!SvPOK(input)) {
+        die("Input is not a string");
+    }
+
     CHECK_MAX_SIZE(pjsn, input)
 
     pjsn->pos_min_valid = pjsn->jsn->pos - cur_len;
