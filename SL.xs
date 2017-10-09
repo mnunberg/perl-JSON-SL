@@ -886,11 +886,12 @@ convert_to_tuba_cbt(struct jsonsl_state_st *state)
     }
     if (state->special_flags & JSONSL_SPECIALf_BOOLEAN) {
         return PLTUBA_CALLBACK_BOOLEAN;
-    } else if (state->special_flags & JSONSL_SPECIALf_NUMERIC) {
+    } else if (state->special_flags & (JSONSL_SPECIALf_NUMERIC | JSONSL_SPECIALf_DASH)) {
         return PLTUBA_CALLBACK_NUMBER;
     } else if (state->special_flags == JSONSL_SPECIALf_NULL) {
         return PLTUBA_CALLBACK_NULL;
     }
+    warn("Special flag is %d", state->special_flags);
     die("wtf?");
     return 0;
 }
