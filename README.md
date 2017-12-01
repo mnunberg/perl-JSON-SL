@@ -2,10 +2,8 @@
 
 `JSON::SL` is a Fast, Streaming, and Searchable JSON decoder, written
 in Perl and C. It was designed from the ground up to be easily accessible and
-searchable for partially received streamining content.
-
-It uses an embedded C library `jsonsl` to do the streaming and most
-of the dirty work.
+searchable for partially received streamining content. It uses an
+embedded C library `jsonsl` to do the streaming and most of the dirty work.
 
 JSON::SL allows you to use the
 [JSONPointer](http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02)
@@ -35,7 +33,7 @@ To install this module, run the following commands:
 
 > Taken from `perldoc JSON::SL`
 
-An exampel of how to use it. 
+An example of how to use it. 
 
 	use JSON::SL;
     use Data::Dumper;
@@ -114,6 +112,9 @@ You can also look for information at:
     Search CPAN
         http://search.cpan.org/dist/JSON-SL/
 
+And
+[this repo issues](https://github.com/mnunberg/perl-JSON-SL/issues),
+obviously. 
 
 # LICENSE AND COPYRIGHT
 
